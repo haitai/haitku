@@ -654,7 +654,7 @@ export default function App() {
             )}
             {!query && (
               <span className="search__hint" aria-hidden="true">
-                <code>y:2026</code> 年份 · <code>has:image</code> 有图 · <kbd>r</kbd> 随机
+                <code>y:2026</code> 年份 · <code>has:image</code> 有图
               </span>
             )}
           </label>

@@ -321,18 +321,13 @@ button {
   display: flex;
 }
 
-.search__hint code,
-.search__hint kbd {
+.search__hint code {
   font-family: var(--mono);
   font-size: 11px;
   color: var(--ink-2);
   background: var(--surface-2);
   border-radius: 4px;
   padding: 1px 5px;
-}
-
-.search__hint kbd {
-  border: 1px solid var(--line);
 }
 
 .toolbar__side {
