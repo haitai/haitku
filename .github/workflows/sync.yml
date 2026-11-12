@@ -19,7 +19,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     env:
-      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      # 可选：Cloudflare Pages → Settings → Deploy hooks 生成的 URL。
+      # 未配置时下面的兜底步骤会自动跳过。
+      CF_DEPLOY_HOOK: ${{ secrets.CF_DEPLOY_HOOK }}
     steps:
       - uses: actions/checkout@v4
 
@@ -37,28 +39,29 @@ jobs:
         run: npm run sync
 
       - name: 提交数据变更
+        id: commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A public/data/posts.json public/media
           if git diff --cached --quiet; then
             echo "没有新增或变更，跳过提交"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # commit message 不要含 [skip ci] / CF-Pages-Skip，否则 Cloudflare 会跳过构建
           git commit -m "chore: 同步 Notion 动态 $(date -u +%Y-%m-%d)"
           git push
+          echo "changed=true" >> "$GITHUB_OUTPUT"
 
-      # 部署方式二选一：
-      # A. 推荐：Cloudflare Pages 连接本 GitHub 仓库，push 后自动构建部署
-      #    （构建命令 npm run build，输出目录 dist，Functions 目录 functions）。
-      #    此时无需配置任何 secrets，下面这一步会自动跳过。
-      # B. 若沿用 wrangler 直传：在仓库 Secrets 中配置
-      #    CLOUDFLARE_API_TOKEN 与 CLOUDFLARE_ACCOUNT_ID，下面这一步会执行部署。
-      - name: 部署到 Cloudflare Pages（可选）
-        if: env.CF_TOKEN != ''
-        env:
-          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # 正常路径：Cloudflare Pages 已连接本仓库，push 后自动构建部署
+      # （构建命令 npm run build，输出目录 dist，Functions 目录 functions）。
+      # 兜底路径：极少数情况下 bot 提交没有触发 Pages 构建，可在仓库 Secrets
+      # 中配置 CF_DEPLOY_HOOK，此步骤会在有数据变更时显式 POST 一次构建钩子。
+      # 两者都生效时会构建两次（内容相同，无害），因此仅在确认 webhook
+      # 不触发时才配置这个 secret。
+      - name: 触发 Pages 构建（可选兜底）
+        if: steps.commit.outputs.changed == 'true' && env.CF_DEPLOY_HOOK != ''
         run: |
-          npm run build
-          npx wrangler pages deploy dist --project-name haitku --commit-dirty=true
+          curl -fsS --max-time 30 -X POST "$CF_DEPLOY_HOOK" \
+            -o /dev/null -w "deploy hook HTTP=%{http_code}\n"
