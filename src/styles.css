@@ -210,10 +210,12 @@ button {
 }
 
 .toolbar__inner {
+  --control-h: 40px;
+  --toolbar-pad-y: 11px;
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 11px 0;
+  padding: var(--toolbar-pad-y) 0;
 }
 
 .search {
@@ -223,7 +225,7 @@ button {
   align-items: center;
   gap: 8px;
   min-width: 0;
-  height: 40px;
+  height: var(--control-h);
   padding: 0 12px;
   background: var(--surface);
   border: 1px solid var(--line);
@@ -299,7 +301,8 @@ button {
 /* 语法提示：只在空输入且聚焦时浮出，不占布局 */
 .search__hint {
   position: absolute;
-  top: calc(100% + 8px);
+  /* 越过工具栏下内边距，让浮层落在下边框之外，而不是压在边框上 */
+  top: calc(100% + var(--toolbar-pad-y, 11px) + 8px);
   left: 0;
   z-index: 60;
   display: none;
@@ -335,7 +338,14 @@ button {
   align-items: center;
   gap: 8px;
   flex: none;
+  height: var(--control-h);
   margin-left: auto;
+}
+
+/* 悬停区域与搜索框等高，边缘对齐 */
+.toolbar__side .iconbtn {
+  width: var(--control-h);
+  height: 100%;
 }
 
 .iconbtn {
@@ -1236,15 +1246,15 @@ html[data-theme='dark'] .toast {
   }
 
   .toolbar__inner {
+    --control-h: 38px;
+    --toolbar-pad-y: 9px;
     flex-wrap: nowrap;
     gap: 8px;
-    padding: 9px 0;
   }
 
   .search {
     flex: 1 1 auto;
     min-width: 0;
-    height: 38px;
   }
 
   .toolbar__side {
