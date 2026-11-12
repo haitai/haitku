@@ -1,0 +1,64 @@
+name: 每日静态化 Notion 动态
+
+# 仓库根目录即本目录（haitku/）：public/data/posts.json 与 public/media/ 需要入库。
+on:
+  schedule:
+    # UTC 22:00 = 北京时间次日 06:00
+    - cron: '0 22 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: notion-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      # 全量拉取：新增、修改、删除都能同步。已静态化的图片会复用，
+      # 无内容变化时 posts.json 逐字节不变，因此不会产生空提交。
+      - name: 从 Notion 同步全量数据
+        run: npm run sync
+
+      - name: 提交数据变更
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A public/data/posts.json public/media
+          if git diff --cached --quiet; then
+            echo "没有新增或变更，跳过提交"
+            exit 0
+          fi
+          git commit -m "chore: 同步 Notion 动态 $(date -u +%Y-%m-%d)"
+          git push
+
+      # 部署方式二选一：
+      # A. 推荐：Cloudflare Pages 连接本 GitHub 仓库，push 后自动构建部署
+      #    （构建命令 npm run build，输出目录 dist，Functions 目录 functions）。
+      #    此时无需配置任何 secrets，下面这一步会自动跳过。
+      # B. 若沿用 wrangler 直传：在仓库 Secrets 中配置
+      #    CLOUDFLARE_API_TOKEN 与 CLOUDFLARE_ACCOUNT_ID，下面这一步会执行部署。
+      - name: 部署到 Cloudflare Pages（可选）
+        if: env.CF_TOKEN != ''
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          npm run build
+          npx wrangler pages deploy dist --project-name haitku --commit-dirty=true

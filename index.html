@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>haitku · 一个人的微博客</title>
+    <meta name="description" content="haitku 的个人微博客，2007 年至今的三千余条碎碎念，内容托管在 Notion。" />
+    <meta name="theme-color" content="#0b1622" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="haitku · 一个人的微博客" />
+    <meta property="og:description" content="2007 年至今的三千余条碎碎念。" />
+    <meta property="og:image" content="/cover.jpg" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      html { background: #f6f7f9; }
+      html[data-theme='dark'] { background: #090d12; }
+    </style>
+    <script>
+      try {
+        var saved = localStorage.getItem('haitku-theme');
+        document.documentElement.dataset.theme =
+          saved === 'dark' || saved === 'light'
+            ? saved
+            : window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'dark'
+              : 'light';
+      } catch (e) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
