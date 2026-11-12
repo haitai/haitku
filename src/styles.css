@@ -296,81 +296,51 @@ button {
   height: 14px;
 }
 
+/* 语法提示：只在空输入且聚焦时浮出，不占布局 */
+.search__hint {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  z-index: 60;
+  display: none;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 3px 5px;
+  max-width: min(430px, calc(100vw - 28px));
+  padding: 8px 11px;
+  font-size: 11.5px;
+  line-height: 1.6;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  box-shadow: 0 14px 36px -18px rgba(10, 16, 24, 0.45), var(--shadow-sm);
+}
+
+.search:focus-within .search__hint {
+  display: flex;
+}
+
+.search__hint code,
+.search__hint kbd {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink-2);
+  background: var(--surface-2);
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.search__hint kbd {
+  border: 1px solid var(--line);
+}
+
 .toolbar__side {
   display: flex;
   align-items: center;
   gap: 8px;
   flex: none;
   margin-left: auto;
-}
-
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  height: 40px;
-  padding: 0 12px;
-  font-size: 13.5px;
-  white-space: nowrap;
-  color: var(--ink-2);
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 11px;
-  box-shadow: var(--shadow-sm);
-  transition: border-color 0.18s ease, background 0.18s ease, color 0.18s ease;
-}
-
-.chip:hover {
-  border-color: var(--line-strong);
-  color: var(--ink);
-}
-
-.chip.is-active {
-  color: var(--accent-strong);
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
-  background: var(--accent-soft);
-}
-
-.chip:disabled {
-  opacity: 0.5;
-  cursor: default;
-}
-
-.chip__ico {
-  display: grid;
-  place-items: center;
-  width: 15px;
-  height: 15px;
-  color: var(--muted);
-}
-
-.chip.is-active .chip__ico {
-  color: var(--accent);
-}
-
-.chip__ico svg {
-  width: 15px;
-  height: 15px;
-}
-
-.chip--ghost {
-  background: transparent;
-  box-shadow: none;
-  border-color: transparent;
-  color: var(--muted);
-}
-
-.chip--ghost:hover {
-  background: var(--surface);
-  border-color: var(--line);
-  color: var(--ink);
-}
-
-.chip--ghost.is-active,
-.chip--ghost.is-active:hover {
-  color: var(--accent-strong);
-  background: var(--accent-soft);
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--line));
 }
 
 .iconbtn {
@@ -408,72 +378,6 @@ button {
 .iconbtn--plain:hover {
   background: var(--surface-2);
   color: var(--ink);
-}
-
-/* 年份菜单 */
-
-.yearmenu {
-  position: relative;
-}
-
-.yearmenu__panel {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
-  z-index: 50;
-  width: 250px;
-  max-height: min(58vh, 420px);
-  overflow: auto;
-  padding: 6px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  box-shadow: 0 18px 48px -18px rgba(10, 16, 24, 0.4), var(--shadow-sm);
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 2px;
-  animation: pop 0.14s ease-out;
-}
-
-@keyframes pop {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-}
-
-.yearmenu__item {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 8px 10px;
-  border-radius: 8px;
-  font-size: 13.5px;
-  color: var(--ink-2);
-  text-align: left;
-  font-variant-numeric: tabular-nums;
-}
-
-.yearmenu__item em {
-  font-style: normal;
-  font-size: 11px;
-  color: var(--muted);
-  font-variant-numeric: tabular-nums;
-}
-
-.yearmenu__item:hover {
-  background: var(--surface-2);
-  color: var(--ink);
-}
-
-.yearmenu__item.is-active {
-  background: var(--accent-soft);
-  color: var(--accent-strong);
-}
-
-.yearmenu__item.is-active em {
-  color: var(--accent);
 }
 
 /* ============================== 列表 ============================== */
@@ -1337,35 +1241,24 @@ html[data-theme='dark'] .toast {
   }
 
   .toolbar__inner {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: 8px;
     padding: 9px 0;
   }
 
   .search {
-    flex: 1 1 100%;
+    flex: 1 1 auto;
+    min-width: 0;
     height: 38px;
-    order: 1;
-  }
-
-  /* 触发按钮贴屏幕左侧，弹板改为左对齐，避免 250px 面板向左溢出视口 */
-  .yearmenu__panel {
-    left: 0;
-    right: auto;
-    width: min(250px, calc(100vw - 36px));
-    max-height: min(52vh, 380px);
   }
 
   .toolbar__side {
-    order: 2;
-    width: 100%;
-    justify-content: space-between;
+    flex: none;
+    margin-left: 0;
   }
 
-  .chip {
-    height: 34px;
-    font-size: 12.5px;
-    padding: 0 10px;
+  .search__hint {
+    max-width: calc(100vw - 28px);
   }
 
   .iconbtn {

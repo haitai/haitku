@@ -23,6 +23,29 @@ import {
 
 const PAGE = 60;
 
+/* 搜索语法：y:2026 限定年份，has:image 只看有图，其余词按全文关键词处理 */
+type ParsedQuery = { keyword: string; year: number | 'all'; mediaOnly: boolean };
+
+function parseQuery(raw: string): ParsedQuery {
+  let year: number | 'all' = 'all';
+  let mediaOnly = false;
+  const words: string[] = [];
+  for (const token of raw.trim().split(/\s+/)) {
+    if (!token) continue;
+    const y = /^y:(\d{4})$/i.exec(token);
+    if (y) {
+      year = Number(y[1]);
+      continue;
+    }
+    if (/^has:image$/i.test(token)) {
+      mediaOnly = true;
+      continue;
+    }
+    words.push(token);
+  }
+  return { keyword: words.join(' '), year, mediaOnly };
+}
+
 /* ---------------------------------- 图标 --------------------------------- */
 
 const Mark = () => (
@@ -48,11 +71,6 @@ const Ico = {
       <path d="m6 6 12 12M18 6 6 18" strokeLinecap="round" />
     </svg>
   ),
-  chevron: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
-      <path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  ),
   copy: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
       <rect x="9" y="9" width="11" height="11" rx="2.5" />
@@ -76,26 +94,9 @@ const Ico = {
       <path d="M20 14.5A8.5 8.5 0 0 1 9.5 4 8.5 8.5 0 1 0 20 14.5Z" strokeLinejoin="round" />
     </svg>
   ),
-  dice: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-      <rect x="3.5" y="3.5" width="17" height="17" rx="4" />
-      <circle cx="8.5" cy="8.5" r="1.2" fill="currentColor" stroke="none" />
-      <circle cx="15.5" cy="8.5" r="1.2" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" />
-      <circle cx="8.5" cy="15.5" r="1.2" fill="currentColor" stroke="none" />
-      <circle cx="15.5" cy="15.5" r="1.2" fill="currentColor" stroke="none" />
-    </svg>
-  ),
   up: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
       <path d="M12 19V5M6 11l6-6 6 6" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  ),
-  image: (
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
-      <rect x="3.5" y="4.5" width="17" height="15" rx="3.5" />
-      <circle cx="8.6" cy="9.6" r="1.5" />
-      <path d="m4.6 17.2 4.3-4.1a1.6 1.6 0 0 1 2.2 0l3 2.9 2-1.9a1.6 1.6 0 0 1 2.2 0l1.9 1.8" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
 };
@@ -378,10 +379,7 @@ export default function App() {
   const [payload, setPayload] = useState<Payload | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [year, setYear] = useState<number | 'all'>('all');
-  const [mediaOnly, setMediaOnly] = useState(false);
   const [visible, setVisible] = useState(PAGE);
-  const [yearOpen, setYearOpen] = useState(false);
   const [active, setActive] = useState<Post | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [theme, setTheme] = useState<Theme>(() => {
@@ -397,6 +395,7 @@ export default function App() {
   const sentinelRef = useRef<HTMLDivElement>(null);
 
   const deferredQuery = useDeferredValue(query.trim());
+  const { keyword, year, mediaOnly } = useMemo(() => parseQuery(deferredQuery), [deferredQuery]);
 
   /* 记录工具条高度，供年份标题吸顶使用 */
   useEffect(() => {
@@ -443,14 +442,16 @@ export default function App() {
     }
   }, []);
 
-  /* 初始数据 + URL 参数 */
+  /* 初始数据 + URL 参数（兼容旧的 ?y= / ?img= 深链，转成搜索语法） */
   useEffect(() => {
     const params = new URLSearchParams(location.search);
-    const q0 = params.get('q');
+    const q0 = params.get('q') ?? '';
+    const tokens = [q0];
     const y0 = params.get('y');
-    if (q0) setQuery(q0);
-    if (y0 && /^\d{4}$/.test(y0)) setYear(Number(y0));
-    if (params.get('img') === '1') setMediaOnly(true);
+    if (y0 && /^\d{4}$/.test(y0) && !/y:\d{4}/i.test(q0)) tokens.push(`y:${y0}`);
+    if (params.get('img') === '1' && !/has:image/i.test(q0)) tokens.push('has:image');
+    const next = tokens.filter(Boolean).join(' ');
+    if (next) setQuery(next);
 
     void refresh(true);
   }, [refresh]);
@@ -485,47 +486,17 @@ export default function App() {
     }
   }, [active]);
 
-  /* URL 同步筛选条件 */
+  /* URL 同步筛选条件：年份与「有图」已并入搜索串，旧的独立参数不再写入 */
   useEffect(() => {
     const params = new URLSearchParams(location.search);
     if (query.trim()) params.set('q', query.trim());
     else params.delete('q');
-    if (year !== 'all') params.set('y', String(year));
-    else params.delete('y');
-    if (mediaOnly) params.set('img', '1');
-    else params.delete('img');
+    params.delete('y');
+    params.delete('img');
     if (active) return;
     const next = params.toString();
     history.replaceState(null, '', `${location.pathname}${next ? `?${next}` : ''}${location.hash}`);
-  }, [query, year, mediaOnly, active]);
-
-  /* 键盘 */
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      const el = e.target as HTMLElement;
-      const typing = /^(INPUT|TEXTAREA)$/.test(el.tagName);
-      if (e.key === '/' && !typing) {
-        e.preventDefault();
-        searchRef.current?.focus();
-      }
-      if (e.key === 'Escape' && !active) {
-        if (yearOpen) setYearOpen(false);
-        else if (document.activeElement === searchRef.current) searchRef.current?.blur();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [active, yearOpen]);
-
-  /* 年份菜单点击外部关闭 */
-  useEffect(() => {
-    if (!yearOpen) return;
-    const onClick = (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest('.yearmenu')) setYearOpen(false);
-    };
-    document.addEventListener('click', onClick);
-    return () => document.removeEventListener('click', onClick);
-  }, [yearOpen]);
+  }, [query, active]);
 
   /* 无限滚动 */
   useEffect(() => {
@@ -551,23 +522,14 @@ export default function App() {
   const posts = payload?.posts ?? [];
 
   const filtered = useMemo(() => {
-    const q = deferredQuery.toLowerCase();
+    const q = keyword.toLowerCase();
     return posts.filter((p) => {
       if (year !== 'all' && yearOf(p.date) !== year) return false;
       if (mediaOnly && !p.media) return false;
       if (!q) return true;
       return searchText(p).includes(q);
     });
-  }, [posts, deferredQuery, year, mediaOnly]);
-
-  const years = useMemo(() => {
-    const map = new Map<number, number>();
-    for (const p of posts) {
-      const y = yearOf(p.date);
-      map.set(y, (map.get(y) ?? 0) + 1);
-    }
-    return [...map.entries()].sort((a, b) => b[0] - a[0]);
-  }, [posts]);
+  }, [posts, keyword, year, mediaOnly]);
 
   const groups = useMemo(() => {
     const out: { year: number; items: Post[] }[] = [];
@@ -587,17 +549,6 @@ export default function App() {
     resetVisible();
   };
 
-  const pickYear = (y: number | 'all') => {
-    setYear(y);
-    setYearOpen(false);
-    resetVisible();
-    if (y !== 'all') {
-      requestAnimationFrame(() => {
-        document.getElementById('feed')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
-    }
-  };
-
   const showToast = (msg: string) => {
     setToast(msg);
     window.setTimeout(() => setToast(null), 1800);
@@ -612,10 +563,33 @@ export default function App() {
     }
   };
 
-  const random = () => {
+  const random = useCallback(() => {
     if (!filtered.length) return;
     setActive(filtered[Math.floor(Math.random() * filtered.length)]);
-  };
+  }, [filtered]);
+
+  /* 键盘：/ 聚焦搜索、r 随机看一条、Esc 退出搜索框 */
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const el = e.target as HTMLElement;
+      const typing = /^(INPUT|TEXTAREA)$/.test(el.tagName) || el.isContentEditable;
+      if (e.key === 'Escape' && !active && document.activeElement === searchRef.current) {
+        searchRef.current?.blur();
+        return;
+      }
+      if (typing) return;
+      if (e.key === '/') {
+        e.preventDefault();
+        searchRef.current?.focus();
+      } else if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        random();
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [active, random]);
 
   const step = (dir: 1 | -1) => {
     if (!active) return;
@@ -625,7 +599,7 @@ export default function App() {
   };
 
   const loading = !payload && !error;
-  const filtering = Boolean(deferredQuery) || year !== 'all' || mediaOnly;
+  const filtering = Boolean(deferredQuery);
 
   return (
     <div className="app">
@@ -678,68 +652,20 @@ export default function App() {
             ) : (
               <kbd className="search__kbd">/</kbd>
             )}
+            {!query && (
+              <span className="search__hint" aria-hidden="true">
+                <code>y:2026</code> 年份 · <code>has:image</code> 有图 · <kbd>r</kbd> 随机
+              </span>
+            )}
           </label>
 
           <div className="toolbar__side">
-            <div className="yearmenu">
-              <button
-                type="button"
-                className={`chip${year !== 'all' ? ' is-active' : ''}`}
-                onClick={() => setYearOpen((v) => !v)}
-                aria-expanded={yearOpen}
-                aria-haspopup="listbox"
-              >
-                {year === 'all' ? '全部年份' : `${year} 年`}
-                <span className="chip__ico">{Ico.chevron}</span>
-              </button>
-              {yearOpen && (
-                <div className="yearmenu__panel" role="listbox">
-                  <button
-                    type="button"
-                    className={`yearmenu__item${year === 'all' ? ' is-active' : ''}`}
-                    onClick={() => pickYear('all')}
-                  >
-                    <span>全部</span>
-                    <em>{nf.format(posts.length)}</em>
-                  </button>
-                  {years.map(([y, n]) => (
-                    <button
-                      key={y}
-                      type="button"
-                      className={`yearmenu__item${year === y ? ' is-active' : ''}`}
-                      onClick={() => pickYear(y)}
-                    >
-                      <span>{y}</span>
-                      <em>{n}</em>
-                    </button>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            <button
-              type="button"
-              className={`chip chip--ghost${mediaOnly ? ' is-active' : ''}`}
-              onClick={() => {
-                setMediaOnly((v) => !v);
-                resetVisible();
-              }}
-              aria-pressed={mediaOnly}
-            >
-              <span className="chip__ico">{Ico.image}</span>
-              有图
-            </button>
-
-            <button type="button" className="chip chip--ghost" onClick={random} disabled={!filtered.length}>
-              <span className="chip__ico">{Ico.dice}</span>
-              随便看看
-            </button>
-
             <button
               type="button"
               className="iconbtn iconbtn--plain"
               onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
               aria-label={theme === 'dark' ? '切换到浅色模式' : '切换到深色模式'}
+              title="切换主题"
             >
               {theme === 'dark' ? Ico.sun : Ico.moon}
             </button>
@@ -754,21 +680,14 @@ export default function App() {
               筛出 <b>{nf.format(filtered.length)}</b> 条
               {year !== 'all' && <> · {year} 年</>}
               {mediaOnly && <> · 只看有图</>}
-              {deferredQuery && (
+              {keyword && (
                 <>
                   {' '}
-                  · 关键词 <b>“{deferredQuery}”</b>
+                  · 关键词 <b>“{keyword}”</b>
                 </>
               )}
             </span>
-            <button
-              type="button"
-              onClick={() => {
-                onQuery('');
-                setYear('all');
-                setMediaOnly(false);
-              }}
-            >
+            <button type="button" onClick={() => onQuery('')}>
               清除筛选
             </button>
           </div>
@@ -801,15 +720,8 @@ export default function App() {
         {!loading && !error && filtered.length === 0 && (
           <div className="state">
             <h2>没有匹配的动态</h2>
-            <p>换个关键词，或者把年份放宽试试。</p>
-            <button
-              type="button"
-              className="btn"
-              onClick={() => {
-                onQuery('');
-                setYear('all');
-              }}
-            >
+            <p>换个关键词试试，也可以用 y:2026 限定年份、has:image 只看有图。</p>
+            <button type="button" className="btn" onClick={() => onQuery('')}>
               查看全部
             </button>
           </div>
@@ -823,7 +735,7 @@ export default function App() {
             </div>
             <div className="year__list">
               {group.items.map((post) => (
-                <PostCard key={post.id} post={post} q={deferredQuery} onOpen={setActive} onCopy={copy} />
+                <PostCard key={post.id} post={post} q={keyword} onOpen={setActive} onCopy={copy} />
               ))}
             </div>
           </section>
