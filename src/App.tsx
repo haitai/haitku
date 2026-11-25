@@ -99,6 +99,12 @@ const Ico = {
       <path d="M12 19V5M6 11l6-6 6 6" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   ),
+  rss: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" aria-hidden="true">
+      <circle cx="5" cy="19" r="1.6" fill="currentColor" stroke="none" />
+      <path d="M3.4 9.2A11.4 11.4 0 0 1 14.8 20.6M3.4 3.6A17 17 0 0 1 20.4 20.6" strokeLinecap="round" />
+    </svg>
+  ),
 };
 
 /* --------------------------------- 文本渲染 -------------------------------- */
@@ -660,6 +666,16 @@ export default function App() {
           </label>
 
           <div className="toolbar__side">
+            <a
+              className="iconbtn iconbtn--plain"
+              href="/rss"
+              target="_blank"
+              rel="noopener noreferrer"
+              aria-label="RSS 订阅"
+              title="RSS 订阅"
+            >
+              {Ico.rss}
+            </a>
             <button
               type="button"
               className="iconbtn iconbtn--plain"
